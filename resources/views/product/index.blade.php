@@ -7,6 +7,8 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
+<link href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" rel="stylesheet">
+
 
 
 
@@ -24,7 +26,9 @@
                         <th width="60px">No</th>
                         <th>Name</th>
                         <th>Price</th>
+                        <th>Image</th>
                         <th width="280px">Action</th>
+
                     </tr>
                 </thead>
                 <tbody>
@@ -42,7 +46,7 @@
                 <h4 class="modal-title" id="modelHeading"></h4>
             </div>
             <div class="modal-body">
-                <form id="productForm" name="productForm" class="form-horizontal">
+                <form id="productForm" name="productForm" class="form-horizontal" enctype="multipart/form-data">
                     <input type="hidden" name="product_id" id="product_id">
                     @csrf
 
@@ -62,6 +66,11 @@
                         <div class="col-sm-12">
                             <textarea id="price" name="price" placeholder="Enter price" class="form-control"></textarea>
                         </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Upload File/Image</label>
+                        <input type="file" name="image" class="form-control" />
                     </div>
 
                     <div class="col-sm-offset-2 col-sm-10">
@@ -87,6 +96,10 @@
         </div>
     </div>
 </div>
+
+<!-- Include jQuery and Toastr JS -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
 
 
 
@@ -125,6 +138,10 @@
                 {
                     data: 'price',
                     name: 'price'
+                },
+                {
+                    data: 'image',
+                    name: 'image'
                 },
                 {
                     data: 'action',
@@ -176,6 +193,7 @@
                 $('#product_id').val(data.id);
                 $('#name').val(data.name);
                 $('#price').val(data.price);
+                $('#saveBtn').html('Save Changes')
             })
         });
 
@@ -188,7 +206,30 @@
             e.preventDefault();
 
             let formData = new FormData(this);
-            $('#saveBtn').html('Sending...');
+
+            if ($('#saveBtn').text() === 'Save Changes') {
+                $('#saveBtn').html('Updating...');
+            } else {
+                $('#saveBtn').html('Sending...');
+            }
+
+            toastr.options = {
+                "closeButton": true,
+                "debug": false,
+                "newestOnTop": true,
+                "progressBar": true,
+                "positionClass": "toast-top-right",
+                "preventDuplicates": true,
+                "onclick": null,
+                "showDuration": "300",
+                "hideDuration": "1000",
+                "timeOut": "3000", // Duration time in milliseconds
+                "extendedTimeOut": "1000",
+                "showEasing": "swing",
+                "hideEasing": "linear",
+                "showMethod": "fadeIn",
+                "hideMethod": "fadeOut"
+            };
 
             $.ajax({
                 type: 'POST',
@@ -197,12 +238,39 @@
                 contentType: false,
                 processData: false,
                 success: (response) => {
+
+                    if ($('#saveBtn').text() === 'Updating...') {
+                        toastr.success('Successfully Updated');
+                        console.log('Successfully Updated');
+                    } else {
+                        toastr.success(response.message);
+                        console.log('Successfully Added');
+                        console.log($('#saveBtn').text());
+                    }
+
+
+
                     $('#saveBtn').html('Submit');
                     $('#productForm').trigger("reset");
                     $('#ajaxModel').modal('hide');
                     table.draw();
+
+
+                    $(".print-error-msg").css('display', 'none')
+
                 },
                 error: function(response) {
+
+                    if (response.status === 422) {
+                        let errors = response.responseJSON.errors;
+
+                        $.each(errors, function(key, value) {
+
+                            console.log(value[0])
+                            toastr.error(value[0]);
+                        });
+
+                    }
                     $('#saveBtn').html('Submit');
                     $('#productForm').find(".print-error-msg").find("ul").html('');
                     $('#productForm').find(".print-error-msg").css('display', 'block');

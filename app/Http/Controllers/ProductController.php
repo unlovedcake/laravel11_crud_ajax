@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Product;
 use DataTables;
+use App\Models\Product;
+use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Validator;
 
 class ProductController extends Controller
 {
@@ -23,6 +24,13 @@ class ProductController extends Controller
 
             return Datatables::of($data)
                 ->addIndexColumn()
+                ->addColumn('image', function ($row) {
+
+
+                    $url = asset($row->image);
+                    return '<img src="' . $url . '" width="50" height="50"/>';
+                })
+
                 ->addColumn('action', function ($row) {
 
                     $btn = '<a href="javascript:void(0)" data-toggle="tooltip"  data-id="' . $row->id . '" data-original-title="View" class="me-1 btn btn-info btn-sm showProduct"><i class="fa-regular fa-eye"></i> View</a>';
@@ -32,7 +40,7 @@ class ProductController extends Controller
 
                     return $btn;
                 })
-                ->rawColumns(['action'])
+                ->rawColumns(['image', 'action'])
                 ->make(true);
         }
 
@@ -47,22 +55,57 @@ class ProductController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $request->validate([
-            'name' => 'required',
-            'price' => 'required',
+        // $request->validate([
+        //     'name' => 'required',
+        //     'price' => 'required',
+        // ]);
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'price' => 'required|numeric',
+
         ]);
 
-        Product::updateOrCreate(
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $filename = NULL;
+        $path = NULL;
+
+        if ($request->has('image')) {
+
+            $file = $request->file('image');
+            $extension = $file->getClientOriginalExtension();
+
+            $filename = time() . '.' . $extension;
+
+            $path = 'uploads/product/';
+            $file->move($path, $filename);
+        }
+
+
+        $product = Product::updateOrCreate(
             [
                 'id' => $request->product_id
             ],
             [
                 'name' => $request->name,
-                'price' => $request->price
+                'price' => $request->price,
+                'image' => $path . $filename,
             ]
         );
 
-        return response()->json(['success' => 'Product saved successfully.']);
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Product added successfully',
+            'product' => $product
+        ], 201);
+
+        // return response()->json(['success' => 'Product saved successfully.']);
     }
 
     /**
@@ -74,6 +117,7 @@ class ProductController extends Controller
     public function show($id): JsonResponse
     {
         $product = Product::find($id);
+
         return response()->json($product);
     }
 
